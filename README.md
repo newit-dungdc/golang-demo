@@ -49,6 +49,7 @@ $ go help
 ```
 
 **add 1 package vào module: go get <ten_package>**
+
 Add package có tên rsc.io/quote
 ```
 $ go get rsc.io/quote
@@ -66,7 +67,7 @@ import "rsc.io/quote"
 
 func main() {
     fmt.Println("Hello, World!")
-	fmt.Println(quote.Go()) // sử dụng func Go của package
+    fmt.Println(quote.Go()) // sử dụng func Go của package
 }
 ```
 
@@ -107,7 +108,8 @@ func Hello(name string) string {
 }
 ```
 
-https://go.dev/doc/tutorial/images/function-syntax.png
+![Giải thích về hàm trên](https://go.dev/doc/tutorial/images/function-syntax.png)
+
 
 #Cách gọi code từ module khác
 
@@ -118,8 +120,14 @@ https://go.dev/doc/tutorial/images/function-syntax.png
  |-- hello/
  ```
 
+ **Tạo module trong thư mục hello**  
+ ```
+$ go mod init example.com/hello
+go: creating new go.mod: module example.com/hello
+ ```
+ 
  **Import module greetings vào module hello**
- Sửa file hello.go như sau
+ Tạo file hello.go như sau
  ```
 package main
 
@@ -135,6 +143,44 @@ func main() {
     fmt.Println(message)
 }
  ```
+**Ở đây là chưa xuất bản module example.com/greetings nên cần chỉnh sửa để module Hello gọi được module Greetings ở thư mục local **
 
+Đứng tại thư mục hello bạn chạy lệnh
+```
+go mod edit -replace example.com/greetings=../greetings
+```
 
-go get example.com/greetings
+Ở file go.mod của thư mục hello tự thay đổi như này là ok
+```
+module example.com/hello
+
+go 1.16
+
+replace example.com/greetings => ../greetings
+```
+
+**Chạy động bộ các dependency ở thự mục hello**
+```
+$ go mod tidy
+go: found example.com/greetings in example.com/greetings v0.0.0-00010101000000-000000000000
+```
+
+File go.mod thay đổi thế này là ok
+```
+module example.com/hello
+
+go 1.16
+
+replace example.com/greetings => ../greetings
+
+require example.com/greetings v0.0.0-00010101000000-000000000000
+```
+
+**Chạy để ra kết quả**
+```
+go run .
+Hi, Gladys. Welcome!
+```
+
+Như vậy là đã tạo và gọi module khác thành công!
+
