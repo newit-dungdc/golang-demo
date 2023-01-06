@@ -454,3 +454,84 @@ func main() {
 ```
 $ go run .
 ```
+
+# Add a test
+
+**Thêm test với hàm Hello**
+
+**Ở thư mục greetings tạo file greetings_test.go**
+
+```
+package greetings
+
+import (
+    "testing"
+    "regexp"
+)
+
+// TestHelloName calls greetings.Hello with a name, checking
+// for a valid return value.
+func TestHelloName(t *testing.T) {
+    name := "Gladys"
+    want := regexp.MustCompile(`\b`+name+`\b`)
+    msg, err := Hello("Gladys")
+    if !want.MatchString(msg) || err != nil {
+        t.Fatalf(`Hello("Gladys") = %q, %v, want match for %#q, nil`, msg, err, want)
+    }
+}
+
+// TestHelloEmpty calls greetings.Hello with an empty string,
+// checking for an error.
+func TestHelloEmpty(t *testing.T) {
+    msg, err := Hello("")
+    if msg != "" || err == nil {
+        t.Fatalf(`Hello("") = %q, %v, want "", error`, msg, err)
+    }
+}
+```
+
+**Đứng ở thư mục greetings chạy lệnh go test**
+
+thêm hậu tố -v để xem các bước kết quả test
+
+```
+$ go test
+PASS
+ok      example.com/greetings   0.467s
+$ go test -v
+=== RUN   TestHelloName
+--- PASS: TestHelloName (0.00s)
+=== RUN   TestHelloEmpty
+--- PASS: TestHelloEmpty (0.00s)
+PASS
+ok      example.com/greetings   0.086s
+```
+
+**Thay đổi code để có kết quả test FAIL**
+
+Sửa code file greetings/greetings.go ở hàm Hello
+
+```
+// Hello returns a greeting for the named person.
+func Hello(name string) (string, error) {
+    // If no name was given, return an error with a message.
+    if name == "" {
+        return name, errors.New("empty name")
+    }
+    // Create a message using a random format.
+    // message := fmt.Sprintf(randomFormat(), name)
+    message := fmt.Sprint(randomFormat())
+    return message, nil
+}
+```
+
+**Chạy test lại để thấy kết quả**
+
+```
+$ go test
+--- FAIL: TestHelloName (0.00s)
+    greetings_test.go:15: Hello("Gladys") = "Hail, %v! Well met!", <nil>, want match for `\bGladys\b`, nil
+FAIL
+exit status 1
+FAIL    example.com/greetings   0.446s
+```
