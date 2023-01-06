@@ -184,3 +184,70 @@ Hi, Gladys. Welcome!
 
 Như vậy là đã tạo và gọi module khác thành công!
 
+#Return and handle an error (Folder lesson-2)
+
+**Sửa code file greetings/greetings.go như sau**
+
+Trả về 1 chuỗi và 1 lỗi
+
+```
+package greetings
+
+import (
+    "errors"
+    "fmt"
+)
+
+// Hello returns a greeting for the named person.
+func Hello(name string) (string, error) {
+    // If no name was given, return an error with a message.
+    if name == "" {
+        return "", errors.New("empty name")
+    }
+
+    // If a name was received, return a value that embeds the name
+    // in a greeting message.
+    message := fmt.Sprintf("Hi, %v. Welcome!", name)
+    return message, nil
+}
+```
+
+**Sửa file hello/hello.go để xử lý lỗi từ greetings và để không bị lỗi**
+
+```
+package main
+
+import (
+    "fmt"
+    "log"
+
+    "example.com/greetings"
+)
+
+func main() {
+    // Set properties of the predefined Logger, including
+    // the log entry prefix and a flag to disable printing
+    // the time, source file, and line number.
+    log.SetPrefix("greetings: ")
+    log.SetFlags(0)
+
+    // Request a greeting message.
+    message, err := greetings.Hello("")
+    // If an error was returned, print it to the console and
+    // exit the program.
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // If no error was returned, print the returned message
+    // to the console.
+    fmt.Println(message)
+}
+```
+
+Trong thư mục hello chạy lệnh ra kết quả
+
+```
+$ go run .
+greetings: empty name
+```
