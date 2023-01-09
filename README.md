@@ -595,3 +595,162 @@ Trong thư mục bin sẽ tạo ra file hello
 $ hello
 map[Darrin:Hail, Darrin! Well met! Gladys:Hi, Gladys. Welcome! Samantha:Hi, Samantha. Welcome!]
 ```
+
+# lesson-3 Getting started with multi-module workspaces
+
+**Điều kiện tiên quyết**
+
+- Go phiên bản 1.18 hoặc mới hơn
+- Editor sửa code ví dụ https://code.visualstudio.com/
+- Terminal chạy lệnh (Terminal Linux và Mac, Cmd Windows)
+
+**Tạo 1 module**
+
+Tạo thư mục và vào thư mục workspace
+
+```
+$ mkdir workspace
+$ cd workspace
+```
+
+**Tạo module hello**
+
+```
+$ mkdir hello
+$ cd hello
+$ go mod init example.com/hello
+go: creating new go.mod: module example.com/hello
+```
+
+**Add gói golang.org/x/example vào module hello**
+
+```
+$ go get golang.org/x/example
+```
+
+**Tạo file hello.go với nội dung**
+
+```
+package main
+
+import (
+    "fmt"
+
+    "golang.org/x/example/stringutil"
+)
+
+func main() {
+    fmt.Println(stringutil.Reverse("Hello"))
+}
+```
+
+**Chạy chương trình trên bằng lệnh**
+
+```
+$ go run example.com/hello
+olleH
+```
+
+**Tạo workspace : trong thư mục workspace tạo file go.work bằng lệnh**
+
+```
+$ go work init ./hello
+```
+
+File go.work sẽ có nội dung kiểu như:
+
+```
+go 1.19
+
+use ./hello
+```
+
+File go.work có cú pháp tương tự file go.mod
+
+**Chạy chương trình tại thư mục workspace**
+
+```
+$ go run example.com/hello
+olleH
+```
+
+**Download 1 module từ online về local để sử dụng : golang.org/x/example**
+**Đứng tại thư mục workspace chạy lệnh**
+
+```
+$ git clone https://go.googlesource.com/example
+Cloning into 'example'...
+remote: Total 204 (delta 93), reused 204 (delta 93)
+Receiving objects: 100% (204/204), 103.24 KiB | 839.00 KiB/s, done.
+Resolving deltas: 100% (93/93), done.
+```
+
+**Add module này vào workspace**
+
+```
+$ go work use ./example
+```
+
+**File go.work nhìn sẽ như thế này**
+
+```
+go 1.19
+
+use (
+	./example
+	./hello
+)
+```
+
+**Tạo 1 hàm mới chuyển chuỗi in hoa từ package golang.org/x/example/stringutil**
+
+**Tạo file toupper.go ở thư mục workspace/example/stringutil với nội dung**
+
+```
+package stringutil
+
+import "unicode"
+
+// ToUpper uppercases all the runes in its argument string.
+func ToUpper(s string) string {
+    r := []rune(s)
+    for i := range r {
+        r[i] = unicode.ToUpper(r[i])
+    }
+    return string(r)
+}
+```
+
+**Sửa file hello.go ở thư mục workspace/hello để sử dụng package: workspace/example/stringutil**
+
+```
+package main
+
+import (
+    "fmt"
+
+    "golang.org/x/example/stringutil"
+)
+
+func main() {
+    fmt.Println(stringutil.ToUpper("Hello"))
+}
+```
+
+**Chạy chương trình module hello đứng ở thư mục workspace**
+
+```
+$ go run example.com/hello
+HELLO
+```
+
+**Chú ý về phát hành module**
+
+Để phát hành module hello thì cần phải phát hành module golang.org/x/example (ví dụ version V0.1.0)
+
+Tại thư mục hello get module golang.org/x/example
+
+```
+cd hello
+go get golang.org/x/example@v0.1.0
+```
