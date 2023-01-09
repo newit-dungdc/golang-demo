@@ -535,3 +535,63 @@ FAIL
 exit status 1
 FAIL    example.com/greetings   0.446s
 ```
+
+# Compile and install the application
+
+**Lệnh go build biên dịch gói cùng các dependencies nhưng không cài đặt kết quả**
+
+**Lệnh go install biên dịch và cài các gói**
+
+**Chạy lệnh để biên dịch và cài ứng dụng**
+
+```
+$ go build
+```
+
+**Chạy file hello vừa được tạo và thấy kết quả**
+
+```
+$ ./hello
+map[Darrin:Great to see you, Darrin! Gladys:Hail, Gladys! Well met! Samantha:Hail, Samantha! Well met!]
+```
+
+Hiện tại chạy chương trình cần chỉ định đường dẫn, chúng ta sẽ cài đặt để chương trình chạy không cần chỉ định đường dẫn
+
+**Get đường dẫn sử dụng lệnh go để cài đặt chương trình**
+
+```
+$ go list -f '{{.Target}}'
+```
+
+Đường dẫn trả về ví dụ là /Users/dungdc-newit/go/bin/hello
+
+Thư mục chạy cài đặt go là /Users/dungdc-newit/go
+
+Thư mục bin tạo file và để chạy chương trình là /Users/dungdc-newit/go/bin
+
+**Thêm đường dẫn cài đặt go vào môi trường chạy chương trình export PATH=$PATH:/path/to/your/install/directory**
+
+```
+$ export PATH=$PATH:/Users/dungdc-newit/go
+```
+
+**Nếu đã có thư mục bin kiểu như $HOME/bin ở môi trường chạy, bạn muốn cài đặt để chạy chương trình Go ở đó thì set biến GOBIN : go env -w GOBIN=/path/to/your/bin**
+
+```
+$ go env -w GOBIN=/Users/dungdc-newit/go/bin
+```
+
+**Chạy lệnh biên dịch và cài đặt gói**
+
+```
+$ go install
+```
+
+Trong thư mục bin sẽ tạo ra file hello
+
+**Chuyển sang 1 thư mục khác và chạy lệnh hello để thấy kết quả chương trình (không phụ thuộc vào đường dẫn chỉ định)**
+
+```
+$ hello
+map[Darrin:Hail, Darrin! Well met! Gladys:Hi, Gladys. Welcome! Samantha:Hi, Samantha. Welcome!]
+```
