@@ -143,7 +143,7 @@ func main() {
     fmt.Println(message)
 }
  ```
-**Ở đây là chưa xuất bản module example.com/greetings nên cần chỉnh sửa để module Hello gọi được module Greetings ở thư mục local **
+**Ở đây là chưa xuất bản module example.com/greetings nên cần chỉnh sửa để module Hello gọi được module Greetings ở thư mục local**
 
 Đứng tại thư mục hello bạn chạy lệnh
 ```
@@ -300,7 +300,7 @@ func randomFormat() string {
 }
 ```
 
-**Trong file hello/hello.go truyền tên vào hàm **
+**Trong file hello/hello.go truyền tên vào hàm**
 
 Code sẽ như sau: 
 
