@@ -10,7 +10,13 @@ $ go version
 go version go1.19.4 darwin/arm64
 ```
 
+**Chú ý nếu chạy lệnh go không được báo lỗi zsh: command not found: go**
 
+Set môi trường để chạy và check lại go version nếu OK ra version là đã chạy được
+
+```
+$ export PATH=$PATH:/usr/local/go/bin
+```
 
 **Khởi tạo module mới : go mod init <ten_module>**
 ```
@@ -754,3 +760,453 @@ Tại thư mục hello get module golang.org/x/example
 cd hello
 go get golang.org/x/example@v0.1.0
 ```
+
+
+# Lesson-4 Developing a RESTful API with Go and Gin
+
+**Điều kiện tiên quyết**
+
+- Cài đặt Go phiên bản 1.16 hoặc mới hơn
+- Editor sửa code ví dụ https://code.visualstudio.com/
+- Terminal chạy lệnh (Terminal Linux và Mac, Cmd Windows)
+- Curl tool: Linux and Mac đã có sẵn, trên windows cài https://docs.microsoft.com/en-us/virtualization/community/team-blog/2017/20171219-tar-and-curl-come-to-windows
+
+**Thiết kế API endpoint**
+
+/albums
+
+GET – Get danh sách tất cả các album, data trả về dạng JSON.
+POST – Tạo mới 1 album, data trả về dạng JSON.
+
+/albums/:id
+
+GET – Get 1 album theo id, data trả về dạng JSON.
+
+**Tạo thư mục code của bạn**
+
+Tạo thư mục web-service-gin
+
+```
+$ mkdir web-service-gin
+$ cd web-service-gin
+```
+
+**Tạo module example/web-service-gin đứng tại thư mục web-service-gin**
+
+```
+$ go mod init example/web-service-gin
+go: creating new go.mod: module example/web-service-gin
+```
+
+**Tạo data cho chương trình**
+
+Lưu ý data lưu vào bộ nhớ nên sẽ bị clear khi đóng chương trình
+
+Tạo file main.go và chèn đoạn code vào
+
+```
+package main
+```
+
+Thêm cấu trúc cho album
+
+```
+// album represents data about a record album.
+type album struct {
+    ID     string  `json:"id"`
+    Title  string  `json:"title"`
+    Artist string  `json:"artist"`
+    Price  float64 `json:"price"`
+}
+```
+
+Set dữ liệu ban đầu
+
+```
+// albums slice to seed record album data.
+var albums = []album{
+    {ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
+    {ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
+    {ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
+}
+```
+
+**API trả về danh sách tất cả items**
+
+GET /albums trả về dạng json
+
+đoạn code get danh sách albums viết dưới phần khai báo data ở trên
+
+```
+// getAlbums responds with the list of all albums as JSON.
+func getAlbums(c *gin.Context) {
+    c.IndentedJSON(http.StatusOK, albums)
+}
+```
+
+gin.Context mang thông tin chi tiết của request, validate và tuần tự hóa JSON
+
+IndentedJSON mang cấu trúc json để có thể trả về dạng json
+
+
+**xử lý cho đường dẫn endpoint**
+
+```
+func main() {
+    router := gin.Default()
+    router.GET("/albums", getAlbums)
+
+    router.Run("localhost:8080")
+}
+```
+
+Khởi tạo route Gin là mặc định
+
+Sử dụng hàm GET với method HTTP đường dẫn /albums
+
+Ở file main.go thêm package vào phần đầu như sau
+
+```
+package main
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+)
+```
+
+**Add dependency github.com/gin-gonic/gin cho module**
+
+```
+$ go get .
+go get: added github.com/gin-gonic/gin v1.7.2
+```
+
+add xong các lib cho dependency thì chạy code file main.go
+
+```
+$ go run .
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /albums                   --> main.getAlbums (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on localhost:8080
+```
+
+**Chạy curl để thử API**
+
+```
+$ curl http://localhost:8080/albums
+[
+    {
+        "id": "1",
+        "title": "Blue Train",
+        "artist": "John Coltrane",
+        "price": 56.99
+    },
+    {
+        "id": "2",
+        "title": "Jeru",
+        "artist": "Gerry Mulligan",
+        "price": 17.99
+    },
+    {
+        "id": "3",
+        "title": "Sarah Vaughan and Clifford Brown",
+        "artist": "Sarah Vaughan",
+        "price": 39.99
+    }
+]
+```
+
+**API tạo 1 item mới**
+
+method POST đường dẫn /albums
+
+viết hàm tạo item mới ở phần đầu của file
+
+```
+// postAlbums adds an album from JSON received in the request body.
+func postAlbums(c *gin.Context) {
+    var newAlbum album
+
+    // Call BindJSON to bind the received JSON to
+    // newAlbum.
+    if err := c.BindJSON(&newAlbum); err != nil {
+        return
+    }
+
+    // Add the new album to the slice.
+    albums = append(albums, newAlbum)
+    c.IndentedJSON(http.StatusCreated, newAlbum)
+}
+```
+
+ Context.BindJSON lấy nội dung yêu cầu từ body request
+
+ Nối item album vào danh sách albums
+
+ Thêm mã 201 trả về, và trả về thông tin albums vừa được thêm
+
+ **Ở hàm main thêm route.POST**
+
+```
+func main() {
+    router := gin.Default()
+    router.GET("/albums", getAlbums)
+    router.POST("/albums", postAlbums)
+
+    router.Run("localhost:8080")
+}
+```
+
+**Chạy lại chương trình**
+
+```
+$ go run .
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /albums                   --> main.getAlbums (3 handlers)
+[GIN-debug] POST   /albums                   --> main.postAlbums (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on localhost:8080
+```
+
+**Test thêm mới 1 album**
+
+```
+$ curl http://localhost:8080/albums \
+    --include \
+    --header "Content-Type: application/json" \
+    --request "POST" \
+    --data '{"id": "4","title": "The Modern Sound of Betty Carter","artist": "Betty Carter","price": 49.99}'
+```
+
+JSON trả về
+
+```
+HTTP/1.1 201 Created
+Content-Type: application/json; charset=utf-8
+Date: Tue, 10 Jan 2023 04:43:24 GMT
+Content-Length: 116
+
+{
+    "id": "4",
+    "title": "The Modern Sound of Betty Carter",
+    "artist": "Betty Carter",
+    "price": 49.99
+} 
+```
+
+**Get lại danh sách albums**
+
+```
+$ curl http://localhost:8080/albums \
+    --header "Content-Type: application/json" \
+    --request "GET"
+```
+
+Kết quả
+
+```
+[
+        {
+                "id": "1",
+                "title": "Blue Train",
+                "artist": "John Coltrane",
+                "price": 56.99
+        },
+        {
+                "id": "2",
+                "title": "Jeru",
+                "artist": "Gerry Mulligan",
+                "price": 17.99
+        },
+        {
+                "id": "3",
+                "title": "Sarah Vaughan and Clifford Brown",
+                "artist": "Sarah Vaughan",
+                "price": 39.99
+        },
+        {
+                "id": "4",
+                "title": "The Modern Sound of Betty Carter",
+                "artist": "Betty Carter",
+                "price": 49.99
+        }
+]
+```
+
+**API trả về 1 item cụ thể**
+
+Viết hàm get 1 item
+
+```
+// getAlbumByID locates the album whose ID value matches the id
+// parameter sent by the client, then returns that album as a response.
+func getAlbumByID(c *gin.Context) {
+    id := c.Param("id")
+
+    // Loop over the list of albums, looking for
+    // an album whose ID value matches the parameter.
+    for _, a := range albums {
+        if a.ID == id {
+            c.IndentedJSON(http.StatusOK, a)
+            return
+        }
+    }
+    c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+```
+
+Context.Param get param id từ URL
+
+Lặp từ danh sách albums tìm album trùng id với param từ URL và trả về HTTP code 200
+
+Nếu không có id trùng với param từ URL thì trả về HTTP 404  http.StatusNotFound
+
+**Ở hàm main thêm route.GET album theo id**
+
+```
+func main() {
+    router := gin.Default()
+    router.GET("/albums", getAlbums)
+    router.GET("/albums/:id", getAlbumByID)
+    router.POST("/albums", postAlbums)
+
+    router.Run("localhost:8080")
+}
+```
+
+**Chạy lại chương trình**
+
+```
+$ go run .
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] GET    /albums                   --> main.getAlbums (3 handlers)
+[GIN-debug] GET    /albums/:id               --> main.getAlbumByID (3 handlers)
+[GIN-debug] POST   /albums                   --> main.postAlbums (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Listening and serving HTTP on localhost:8080
+```
+
+**Curl thử 1 item**
+
+```
+$ curl http://localhost:8080/albums/2
+```
+
+kết quả trả về
+
+```
+{
+    "id": "2",
+    "title": "Jeru",
+    "artist": "Gerry Mulligan",
+    "price": 17.99
+}
+```
+
+Thử với id không có trong albums
+
+```
+$ curl http://localhost:8080/albums/10
+```
+
+thấy kết quả 
+
+```
+{
+    "message": "album not found"
+}
+```
+
+**Code đầy đủ của file main.go**
+
+```
+package main
+
+import (
+    "net/http"
+
+    "github.com/gin-gonic/gin"
+)
+
+// album represents data about a record album.
+type album struct {
+    ID     string  `json:"id"`
+    Title  string  `json:"title"`
+    Artist string  `json:"artist"`
+    Price  float64 `json:"price"`
+}
+
+// albums slice to seed record album data.
+var albums = []album{
+    {ID: "1", Title: "Blue Train", Artist: "John Coltrane", Price: 56.99},
+    {ID: "2", Title: "Jeru", Artist: "Gerry Mulligan", Price: 17.99},
+    {ID: "3", Title: "Sarah Vaughan and Clifford Brown", Artist: "Sarah Vaughan", Price: 39.99},
+}
+
+func main() {
+    router := gin.Default()
+    router.GET("/albums", getAlbums)
+    router.GET("/albums/:id", getAlbumByID)
+    router.POST("/albums", postAlbums)
+
+    router.Run("localhost:8080")
+}
+
+// getAlbums responds with the list of all albums as JSON.
+func getAlbums(c *gin.Context) {
+    c.IndentedJSON(http.StatusOK, albums)
+}
+
+// postAlbums adds an album from JSON received in the request body.
+func postAlbums(c *gin.Context) {
+    var newAlbum album
+
+    // Call BindJSON to bind the received JSON to
+    // newAlbum.
+    if err := c.BindJSON(&newAlbum); err != nil {
+        return
+    }
+
+    // Add the new album to the slice.
+    albums = append(albums, newAlbum)
+    c.IndentedJSON(http.StatusCreated, newAlbum)
+}
+
+// getAlbumByID locates the album whose ID value matches the id
+// parameter sent by the client, then returns that album as a response.
+func getAlbumByID(c *gin.Context) {
+    id := c.Param("id")
+
+    // Loop through the list of albums, looking for
+    // an album whose ID value matches the parameter.
+    for _, a := range albums {
+        if a.ID == id {
+            c.IndentedJSON(http.StatusOK, a)
+            return
+        }
+    }
+    c.IndentedJSON(http.StatusNotFound, gin.H{"message": "album not found"})
+}
+```
+
