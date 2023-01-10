@@ -1210,3 +1210,296 @@ func getAlbumByID(c *gin.Context) {
 }
 ```
 
+# Lesson-5 Getting started with generics
+
+Generics định nghĩa các hàm có kiểu dữ liệu dạng chung chung, không chỉ định rõ là kiểu gì. Khi sử dụng hàm sẽ set kiểu dữ liệu là gì.
+
+**Điều kiện tiên quyết**
+
+- Go phiên bản 1.18 hoặc mới hơn
+- Editor sửa code ví dụ https://code.visualstudio.com/
+- Terminal chạy lệnh (Terminal Linux và Mac, Cmd Windows)
+
+**Tạo và vào thư mục generics**
+
+```
+$ mkdir generics
+$ cd generics
+```
+
+**Tạo module example/generics**
+
+```
+$ go mod init example/generics
+go: creating new go.mod: module example/generics
+```
+
+**Tạo hàm non-generic**
+
+Trong thư mục tạo file main.go và đưa đoạn code vào khai báo package
+
+Ghi chú : Đoạn code dưới có sử dụng map -> Map (bản đồ) là một kiểu dữ liệu được dựng sẵn trong Go, một map là tập hợp các cặp key/value (khóa/giá trị) trong đó một value được liên kết với một key. Value chỉ được truy xuất bởi key tương ứng.
+
+
+```
+package main
+```
+
+Dưới khai báo package viết 2 hàm khai báo như sau
+
+```
+// SumInts adds together the values of m.
+func SumInts(m map[string]int64) int64 {
+    var s int64
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+
+// SumFloats adds together the values of m.
+func SumFloats(m map[string]float64) float64 {
+    var s float64
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+```
+
+- SumFloats map giá trị chuỗi thành dạng float64
+- SumInts map giá trị chuỗi thành dạng int64
+
+Viết hàm chính để gọi tính tổng
+
+```
+func main() {
+    // Initialize a map for the integer values
+    ints := map[string]int64{
+        "first":  34,
+        "second": 12,
+    }
+
+    // Initialize a map for the float values
+    floats := map[string]float64{
+        "first":  35.98,
+        "second": 26.99,
+    }
+
+    fmt.Printf("Non-Generic Sums: %v and %v\n",
+        SumInts(ints),
+        SumFloats(floats))
+}
+```
+
+- Khởi tạo biến map các giá trị integer, khởi tạo biến map các giá trị float
+- Gọi hàm tính tổng
+
+Import thêm package để in ra màn hình 
+
+```
+package main
+
+import "fmt"
+```
+
+Chạy chương trình
+
+```
+$ go run .
+Non-Generic Sums: 46 and 62.97
+```
+
+**Add a generic function to handle multiple types**
+
+Tạo 1 hàm có nhiều kiểu dữ liệu, cụ thể ở đây là số nguyên và chuỗi.
+
+Viết đoạn code sau
+
+```
+// SumIntsOrFloats sums the values of map m. It supports both int64 and float64
+// as types for map values.
+func SumIntsOrFloats[K comparable, V int64 | float64](m map[K]V) V {
+    var s V
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+```
+
+- Khai báo hàm SumIntsOrFloats với 2 tham số loại K và V, và 1 đối số m kiểu map[K]V trả về kiểu V
+
+- K là kiểu dữ liệu có thể so sánh, có thể sử dụng K là khóa trong map
+
+- V là ràng buộc kiểu giữa 2 loại int64 và float64, dấu gạch dọc ý nói là được phép 1 trong 2 kiểu dữ liệu
+
+- M là map có kiểu K[V] , K và V đã được định kiểu
+
+Cop đoạn code vào file main.go
+
+```
+fmt.Printf("Generic Sums: %v and %v\n",
+    SumIntsOrFloats[string, int64](ints),
+    SumIntsOrFloats[string, float64](floats))
+```
+
+- Gọi hàm SumIntsOrFloats vừa được khai báo
+
+- trong ngoặc vuông chỉ định rõ kiểu dữ liệu
+
+Chạy code 
+
+```
+$ go run .
+Non-Generic Sums: 46 and 62.97
+Generic Sums: 46 and 62.97
+```
+
+**Xóa kiểu của đối số khi gọi hàm Generic**
+
+ở file main.go sửa fn main
+
+```
+fmt.Printf("Generic Sums, type parameters inferred: %v and %v\n",
+    SumIntsOrFloats(ints),
+    SumIntsOrFloats(floats))
+```
+
+Chạy chương trình
+
+```
+$ go run .
+Non-Generic Sums: 46 and 62.97
+Generic Sums: 46 and 62.97
+Generic Sums, type parameters inferred: 46 and 62.97
+```
+
+**Khai báo kiểu của 1 ràng buộc**
+
+Khai báo kiểu của 1 ràng buộc như 1 interface
+
+Phần trên của hàm main khai báo
+
+```
+type Number interface {
+    int64 | float64
+}
+```
+
+- Khai báo interface của Number là dạng ràng buộc
+- Khai báo liên kết int64 và float64 bên trong interface
+
+Thêm 1 fn SumNumbers như sau
+
+```
+// SumNumbers sums the values of map m. It supports both integers
+// and floats as map values.
+func SumNumbers[K comparable, V Number](m map[K]V) V {
+    var s V
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+```
+
+- Ở đây V có kiểu ràng buộc Number nhận kiểu int64 hoặc float64
+
+Ở fn main thêm đoạn code 
+
+```
+fmt.Printf("Generic Sums with Constraint: %v and %v\n",
+    SumNumbers(ints),
+    SumNumbers(floats))
+```
+
+Chạy chương trình
+
+```
+$ go run .
+Non-Generic Sums: 46 and 62.97
+Generic Sums: 46 and 62.97
+Generic Sums, type parameters inferred: 46 and 62.97
+Generic Sums with Constraint: 46 and 62.97
+```
+
+File main.go đầy đủ
+
+```
+package main
+
+import "fmt"
+
+type Number interface {
+    int64 | float64
+}
+
+func main() {
+    // Initialize a map for the integer values
+    ints := map[string]int64{
+        "first": 34,
+        "second": 12,
+    }
+
+    // Initialize a map for the float values
+    floats := map[string]float64{
+        "first": 35.98,
+        "second": 26.99,
+    }
+
+    fmt.Printf("Non-Generic Sums: %v and %v\n",
+        SumInts(ints),
+        SumFloats(floats))
+
+    fmt.Printf("Generic Sums: %v and %v\n",
+        SumIntsOrFloats[string, int64](ints),
+        SumIntsOrFloats[string, float64](floats))
+
+    fmt.Printf("Generic Sums, type parameters inferred: %v and %v\n",
+        SumIntsOrFloats(ints),
+        SumIntsOrFloats(floats))
+
+    fmt.Printf("Generic Sums with Constraint: %v and %v\n",
+        SumNumbers(ints),
+        SumNumbers(floats))
+}
+
+// SumInts adds together the values of m.
+func SumInts(m map[string]int64) int64 {
+    var s int64
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+
+// SumFloats adds together the values of m.
+func SumFloats(m map[string]float64) float64 {
+    var s float64
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+
+// SumIntsOrFloats sums the values of map m. It supports both floats and integers
+// as map values.
+func SumIntsOrFloats[K comparable, V int64 | float64](m map[K]V) V {
+    var s V
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+
+// SumNumbers sums the values of map m. Its supports both integers
+// and floats as map values.
+func SumNumbers[K comparable, V Number](m map[K]V) V {
+    var s V
+    for _, v := range m {
+        s += v
+    }
+    return s
+}
+```
