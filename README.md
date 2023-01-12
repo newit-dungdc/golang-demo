@@ -1503,3 +1503,313 @@ func SumNumbers[K comparable, V Number](m map[K]V) V {
     return s
 }
 ```
+
+# lesson 6 - Rest API Todo List + DB Mysql
+
+**Chạy lệnh cài docker mysql**
+
+```
+docker run -d --name todo-list-mysql -p 3306:3306 -e MYSQL_ROOT_PASSWORD=my-root-pass -e MYSQL_DATABASE=todo_db mysql:8.0
+```
+
+Trong đó: 
+- todo-list-mysql: tên container
+- my-root-pass: mật khẩu kết nối
+- todo_db: tên DB
+- mysql:8.0: mysql version 8.0
+
+Kết nối Mysql bằng phần mềm như PHPMyAdmin, Navicat, MYSQL workbench... xem thêm tại https://codingsight.com/10-best-mysql-gui-tools/
+
+Chạy truy vấn tạo bảng cho todo list:
+
+```
+CREATE TABLE `todo_items` (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `title` varchar(150) CHARACTER SET utf8 NOT NULL,
+  `status` enum('Doing','Finished') DEFAULT 'Doing',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+```
+
+**Xây dựng Rest API service**
+
+Danh sách các API:
+- POST /v1/items tạo mới 1 Item với dữ liệu chỉ cần có title, status để mặc định là "Doing"
+- GET /v1/items/:id lấy thông tin của 1 item theo id
+- GET /v1/items lấy danh sách các Items
+- PUT /v1/items/:id update title hoặc status của 1 Item thông qua id
+- DELETE /v1/items/:id xoá 1 Item thông qua id
+
+Ở thư mục lesson-6 tạo thư mục todo-list, trong thư mục todo-list tạo module api/todo-list:
+
+```
+$ go mod init api/todo-list
+go: creating new go.mod: module api/todo-list
+```
+
+Add 2 package hỗ trợ là:
+- GIN : hỗ trợ xây dựng web/api service
+- GORM : hỗ trợ ORM database
+
+```
+go get -u github.com/gin-gonic/gin
+go get -u gorm.io/gorm
+go get -u gorm.io/driver/mysql
+```
+
+**Tạo file main.go và viết code kết nối Mysql**
+
+```
+package main
+
+import (
+	"log"
+
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
+
+func main() {
+	dsn := "root:my-root-pass@tcp(127.0.0.1:3306)/todo_db?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	if err != nil {
+		log.Fatalln("Cannot connect to MySQL:", err)
+	}
+
+	log.Println("Connected:", db)
+}
+```
+
+chạy test thử kết nối
+
+**Viết hàm API ở file main.go**
+
+```
+package main
+
+import (
+	"strings"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
+)
+
+type ToDoItem struct {
+	Id        int        `json:"id" gorm:"column:id;"`
+	Title     string     `json:"title" gorm:"column:title;"`
+	Status    string     `json:"status" gorm:"column:status;"`
+	CreatedAt *time.Time `json:"created_at" gorm:"column:created_at;"`
+	UpdatedAt *time.Time `json:"updated_at" gorm:"column:updated_at;"`
+}
+
+func (ToDoItem) TableName() string { return "todo_items" }
+
+func main() {
+	dsn := "root:123456@tcp(127.0.0.1:3306)/todo_db?charset=utf8mb4&parseTime=True&loc=Local"
+	db, err := gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+	if err != nil {
+		log.Fatalln("Cannot connect to MySQL:", err)
+	}
+
+	log.Println("Connected to MySQL:", db)
+
+	router := gin.Default()
+
+	v1 := router.Group("/v1")
+	{
+		v1.POST("/items", createItem(db))           // create item
+		v1.GET("/items", getListOfItems(db))        // list items
+		v1.GET("/items/:id", readItemById(db))      // get an item by ID
+		v1.PUT("/items/:id", editItemById(db))      // edit an item by ID
+		v1.DELETE("/items/:id", deleteItemById(db)) // delete an item by ID
+	}
+
+	router.Run()
+}
+
+/*
+ if err := c.BindJSON(&newAlbum); err != nil {
+}*/
+
+func createItem(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var dataItem ToDoItem
+
+		if err := c.ShouldBind(&dataItem); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := c.BindJSON(&dataItem); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		// preprocess title - trim all spaces
+		dataItem.Title = strings.TrimSpace(dataItem.Title)
+
+		if dataItem.Title == "" {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "title cannot be blank"})
+			return
+		}
+
+		// do not allow "finished" status when creating a new task
+		dataItem.Status = "Doing" // set to default
+
+		if err := db.Create(&dataItem).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": dataItem.Id})
+	}
+}
+	
+func readItemById(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		var dataItem ToDoItem
+
+		id, err := strconv.Atoi(c.Param("id"))
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := db.Where("id = ?", id).First(&dataItem).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": dataItem})
+	}
+}
+	
+func getListOfItems(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		type DataPaging struct {
+			Page  int   `json:"page" form:"page"`
+			Limit int   `json:"limit" form:"limit"`
+			Total int64 `json:"total" form:"-"`
+		}
+
+		var paging DataPaging
+
+		if err := c.ShouldBind(&paging); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error1": err.Error()})
+			return
+		}
+
+		if paging.Page <= 0 {
+			paging.Page = 1
+		}
+
+		if paging.Limit <= 0 {
+			paging.Limit = 10
+		}
+
+		offset := (paging.Page - 1) * paging.Limit
+
+		var result []ToDoItem
+
+		if err := db.Table(ToDoItem{}.TableName()).
+			Count(&paging.Total).
+			Offset(offset).
+			Order("id desc").
+			Find(&result).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": result})
+	}
+}
+	
+func editItemById(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		var dataItem ToDoItem
+
+		if err := c.ShouldBind(&dataItem); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := c.BindJSON(&dataItem); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}	
+
+		if err := db.Where("id = ?", id).Updates(&dataItem).Error; err != nil {
+			c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": true})
+	}
+}
+	
+func deleteItemById(db *gorm.DB) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		id, err := strconv.Atoi(c.Param("id"))
+
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		if err := db.Table(ToDoItem{}.TableName()).
+			Where("id = ?", id).
+			Delete(nil).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+
+		c.JSON(http.StatusOK, gin.H{"data": true})
+	}
+}
+	
+```
+
+
+Chạy thử chương trình 
+
+```
+$ go run main.go
+```
+
+Kết quả
+
+```
+2023/01/12 11:52:27 Connected to MySQL: &{0x14000138240 <nil> 0 0x140002f4000 1}
+[GIN-debug] [WARNING] Creating an Engine instance with the Logger and Recovery middleware already attached.
+
+[GIN-debug] [WARNING] Running in "debug" mode. Switch to "release" mode in production.
+ - using env:   export GIN_MODE=release
+ - using code:  gin.SetMode(gin.ReleaseMode)
+
+[GIN-debug] POST   /v1/items                 --> main.createItem.func1 (3 handlers)
+[GIN-debug] GET    /v1/items                 --> main.getListOfItems.func1 (3 handlers)
+[GIN-debug] GET    /v1/items/:id             --> main.readItemById.func1 (3 handlers)
+[GIN-debug] PUT    /v1/items/:id             --> main.editItemById.func1 (3 handlers)
+[GIN-debug] DELETE /v1/items/:id             --> main.deleteItemById.func1 (3 handlers)
+[GIN-debug] [WARNING] You trusted all proxies, this is NOT safe. We recommend you to set a value.
+Please check https://pkg.go.dev/github.com/gin-gonic/gin#readme-don-t-trust-all-proxies for details.
+[GIN-debug] Environment variable PORT is undefined. Using port :8080 by default
+[GIN-debug] Listening and serving HTTP on :8080
+```
